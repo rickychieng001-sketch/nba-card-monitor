@@ -45,10 +45,14 @@ def load_config(config_path: str) -> Dict[str, Any]:
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    # 环境变量覆盖 Webhook 地址
+    # 环境变量覆盖 Webhook 地址和签名校验密钥
     env_webhook = os.environ.get("FEISHU_WEBHOOK")
     if env_webhook:
         config.setdefault("notifications", {}).setdefault("feishu", {})["webhook_url"] = env_webhook
+
+    env_secret = os.environ.get("FEISHU_SECRET")
+    if env_secret:
+        config.setdefault("notifications", {}).setdefault("feishu", {})["secret"] = env_secret
 
     return config
 
@@ -276,12 +280,13 @@ def send_notifications(config: Dict[str, Any], daily_report: Dict[str, Any], abn
     """
     feishu_config = config.get("notifications", {}).get("feishu", {})
     webhook_url = feishu_config.get("webhook_url")
+    secret = feishu_config.get("secret")
 
     if not webhook_url:
         logger.warning("未配置飞书 Webhook，跳过推送")
         return
 
-    alert = FeishuAlert(webhook_url)
+    alert = FeishuAlert(webhook_url, secret)
 
     # 发送每日日报
     if feishu_config.get("enable_daily", True):

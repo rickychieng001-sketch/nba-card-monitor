@@ -3,6 +3,9 @@
 负责发送每日日报和异常价格提醒
 """
 
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -26,14 +29,31 @@ class FeishuAlert:
     支持每日日报 send_daily_report 和异常提醒 send_alert
     """
 
-    def __init__(self, webhook_url: Optional[str] = None):
+    def __init__(self, webhook_url: Optional[str] = None, secret: Optional[str] = None):
         """
         初始化飞书推送
         :param webhook_url: 飞书 Webhook 地址，默认从环境变量 FEISHU_WEBHOOK 读取
+        :param secret: 飞书机器人签名校验密钥，默认从环境变量 FEISHU_SECRET 读取
         """
         self.webhook_url = webhook_url or os.environ.get("FEISHU_WEBHOOK", "")
+        self.secret = secret or os.environ.get("FEISHU_SECRET", "")
         if not self.webhook_url:
             logger.warning("未配置飞书 Webhook 地址，推送将不可用")
+        if not self.secret:
+            logger.info("未配置飞书签名校验密钥，将以无签名模式发送")
+
+    @staticmethod
+    def _generate_sign(secret: str, timestamp: int) -> str:
+        """
+        生成飞书自定义机器人签名字符串
+        算法：Base64(HMAC-SHA256(timestamp + "\n" + secret))
+        """
+        string_to_sign = f"{timestamp}\n{secret}"
+        hmac_code = hmac.new(
+            string_to_sign.encode("utf-8"),
+            digestmod=hashlib.sha256
+        ).digest()
+        return base64.b64encode(hmac_code).decode("utf-8")
 
     def _send_with_retry(self, payload: Dict[str, Any], max_retries: int = 3) -> bool:
         """
@@ -45,6 +65,14 @@ class FeishuAlert:
         if not self.webhook_url:
             logger.error("飞书 Webhook 未配置，无法发送消息")
             return False
+
+        # 如果配置了签名校验密钥，生成 timestamp 和 sign
+        if self.secret:
+            timestamp = int(time.time())
+            sign = self._generate_sign(self.secret, timestamp)
+            payload["timestamp"] = timestamp
+            payload["sign"] = sign
+            logger.debug("已添加飞书签名校验: timestamp=%s", timestamp)
 
         headers = {"Content-Type": "application/json"}
 
