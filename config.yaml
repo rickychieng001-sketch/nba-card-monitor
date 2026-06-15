@@ -1,0 +1,22 @@
+cards:
+  - name: "2023-24 Panini Prizm Victor Wembanyama Silver Prizm PSA 10"
+    aliases: ["文班亚马 银折 PSA10", "Wembanyama Silver Prizm"]
+    platforms: ["cardhobby", "ebay"]
+  - name: "2018-19 Panini National Treasures Luka Doncic RPA /99"
+    aliases: ["东契奇 RPA", "Doncic RPA NT"]
+    platforms: ["goldin", "pwcc", "ebay"]
+
+thresholds:
+  daily_change: 0.15           # 异常阈值：单日涨跌超过 15%
+  min_price_usd: 10
+  min_price_cny: 100
+
+notifications:
+  feishu:
+    webhook_url: ""             # 用户填写飞书 Webhook 地址
+    enable_daily: true          # 是否发送每日日报
+    enable_alert: true          # 异常时是否推送提醒
+    daily_time: "09:00"         # 日报发送时间（北京时间）
+
+schedule:
+  timezone: "Asia/Shanghai"
