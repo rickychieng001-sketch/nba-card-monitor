@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.helpers import rate_limited_request, parse_price, parse_date
+from utils.helpers import fetch_html_with_fallback, parse_price, parse_date
 
 logger = logging.getLogger("scrapers.pwcc")
 
@@ -51,8 +51,11 @@ class PwccScraper:
                 url = self._build_search_url(card_name, page)
                 logger.debug("PWCC 搜索 URL: %s", url)
 
-                response = rate_limited_request(url, delay=(2, 4))
-                soup = BeautifulSoup(response.text, "lxml")
+                html = fetch_html_with_fallback(url, delay=(2, 4), browser_wait=5)
+                if not html:
+                    logger.info("PWCC 第 %d 页无数据，停止翻页", page)
+                    break
+                soup = BeautifulSoup(html, "lxml")
 
                 items = self._parse_list_page(soup)
                 if not items:

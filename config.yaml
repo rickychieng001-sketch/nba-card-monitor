@@ -11,6 +11,9 @@ thresholds:
   min_price_usd: 10
   min_price_cny: 100
 
+platform_keys:
+  ebay_app_id: ""             # eBay Finding API App ID（免费申请：https://developer.ebay.com/）
+
 notifications:
   feishu:
     webhook_url: ""             # 用户填写飞书 Webhook 地址

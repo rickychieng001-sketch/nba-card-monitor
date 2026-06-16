@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.helpers import rate_limited_request, parse_price, parse_date
+from utils.helpers import fetch_html_with_fallback, parse_price, parse_date
 
 logger = logging.getLogger("scrapers.cardhobby")
 
@@ -26,7 +26,7 @@ class CardHobbyScraper:
     统一接口：search(card_name) -> List[Dict]
     """
 
-    BASE_URL = "https://www.cardhobby.com.cn/search/"
+    BASE_URL = "https://www.cardhobby.com.cn/market/search"
     PLATFORM = "cardhobby"
     CURRENCY = "CNY"
 
@@ -51,9 +51,11 @@ class CardHobbyScraper:
                 url = self._build_search_url(card_name, page)
                 logger.debug("卡淘搜索 URL: %s", url)
 
-                response = rate_limited_request(url, delay=(2, 4))
-                response.encoding = response.apparent_encoding or "utf-8"
-                soup = BeautifulSoup(response.text, "lxml")
+                html = fetch_html_with_fallback(url, delay=(2, 4), browser_wait=5)
+                if not html:
+                    logger.info("卡淘第 %d 页无数据，停止翻页", page)
+                    break
+                soup = BeautifulSoup(html, "lxml")
 
                 items = self._parse_list_page(soup)
                 if not items:

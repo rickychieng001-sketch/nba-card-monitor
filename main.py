@@ -54,6 +54,11 @@ def load_config(config_path: str) -> Dict[str, Any]:
     if env_secret:
         config.setdefault("notifications", {}).setdefault("feishu", {})["secret"] = env_secret
 
+    # 把平台密钥同步到环境变量，方便爬虫读取
+    platform_keys = config.get("platform_keys", {})
+    if platform_keys.get("ebay_app_id"):
+        os.environ["EBAY_APP_ID"] = platform_keys["ebay_app_id"]
+
     return config
 
 

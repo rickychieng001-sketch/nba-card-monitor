@@ -250,3 +250,39 @@ def build_search_keywords(card: dict) -> list:
     if aliases:
         keywords.extend(aliases)
     return keywords
+
+
+def fetch_html_with_fallback(url: str, delay: tuple = (2, 4), browser_wait: int = 5) -> Optional[str]:
+    """
+    先尝试 requests 抓取，失败或无内容时降级到 Playwright 浏览器渲染
+    :param url: 目标 URL
+    :param delay: requests 请求间隔（秒）
+    :param browser_wait: Playwright 页面加载后等待时间（秒）
+    :return: 页面 HTML 或 None
+    """
+    logger = logging.getLogger("utils.helpers")
+
+    # 第一步：尝试 requests
+    try:
+        response = rate_limited_request(url, delay=delay)
+        if response and response.text:
+            # 如果返回 200 但内容明显是拦截页面，也视为失败
+            text_lower = response.text.lower()
+            if any(k in text_lower for k in ["blocked", "captcha", "access denied", "permission denied"]):
+                logger.warning("requests 返回拦截页面，尝试浏览器渲染")
+            else:
+                return response.text
+    except Exception as e:
+        logger.debug("requests 抓取失败: %s", str(e))
+
+    # 第二步：尝试 Playwright 浏览器渲染
+    try:
+        from utils.playwright_fetcher import fetch_with_browser
+        html = fetch_with_browser(url, wait_seconds=browser_wait)
+        if html:
+            return html
+    except Exception as e:
+        logger.debug("Playwright 渲染失败: %s", str(e))
+
+    logger.error("所有抓取方式均失败: %s", mask_sensitive_url(url))
+    return None
