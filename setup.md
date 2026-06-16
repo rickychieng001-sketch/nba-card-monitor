@@ -28,9 +28,11 @@
 3. 点击 **New repository secret**
 4. 添加以下 Secret：
 
-| 名称 | 值 |
-|------|-----|
-| `FEISHU_WEBHOOK` | 你从飞书复制的 Webhook 地址 |
+| 名称 | 值 | 说明 |
+|------|-----|------|
+| `FEISHU_WEBHOOK` | 你从飞书复制的 Webhook 地址 | 必填 |
+| `FEISHU_SECRET` | 飞书机器人签名密钥 | 若机器人开启了签名校验则必填 |
+| `EBAY_APP_ID` | eBay Finding API App ID | 推荐，可稳定获取 eBay 成交数据 |
 
 ---
 
@@ -52,9 +54,13 @@ thresholds:
   min_price_usd: 10
   min_price_cny: 100
 
+platform_keys:
+  ebay_app_id: ""             # eBay Finding API App ID（免费申请，见下文）
+
 notifications:
   feishu:
     webhook_url: ""             # 留空即可，优先读取环境变量 FEISHU_WEBHOOK
+    secret: ""                  # 飞书签名密钥，优先读取环境变量 FEISHU_SECRET
     enable_daily: true
     enable_alert: true
     daily_time: "09:00"
@@ -67,6 +73,7 @@ notifications:
 - `platforms`：要监控的平台，可选 `cardhobby`、`ebay`、`goldin`、`pwcc`
 - `thresholds.daily_change`：涨跌超过该比例会触发异常提醒
 - `min_price_usd` / `min_price_cny`：过滤低价 noise 数据
+- `platform_keys.ebay_app_id`：eBay 官方 API 密钥，最稳定的数据来源
 
 ---
 
@@ -184,7 +191,35 @@ A: 编辑 `.github/workflows/monitor.yml` 中的 `schedule.cron`。注意 GitHub
 
 ---
 
-## 10. 项目结构
+## 10. 关于反爬与 eBay API（重要）
+
+### 反爬说明
+
+卡淘、eBay、Goldin、PWCC 均设有反爬机制，直接使用 HTTP 请求容易被拦截。当前代码做了以下处理：
+
+1. 随机 User-Agent + 请求频率控制
+2. 卡淘搜索 URL 已修正为 `/market/search?keyword=`
+3. eBay 支持官方 Finding API（最稳定）
+4. 所有平台在 HTTP 请求失败后，会自动尝试 Playwright 浏览器渲染
+
+### 申请 eBay App ID（免费）
+
+eBay 官方 API 是获取 sold 数据最稳定、最合规的方式：
+
+1. 访问 https://developer.ebay.com/
+2. 注册/登录 eBay 开发者账号
+3. 创建 Application Key Set
+4. 获取 **App ID (Client ID)**
+5. 配置方式三选一：
+   - 写入 `config.yaml` 的 `platform_keys.ebay_app_id`
+   - 设置为 GitHub Secret：`EBAY_APP_ID`
+   - 本地运行时：`export EBAY_APP_ID=你的AppID`
+
+> 只要配置了 `EBAY_APP_ID`，eBay 爬虫会自动使用官方 API，不再走 HTML 解析。
+
+---
+
+## 11. 项目结构
 
 ```
 card-monitor/
