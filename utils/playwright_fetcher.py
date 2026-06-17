@@ -48,7 +48,8 @@ def fetch_with_browser(url: str, wait_seconds: int = 5) -> Optional[str]:
             """)
 
             logger.info("Playwright 正在渲染: %s", url)
-            page.goto(url, wait_until="networkidle", timeout=60000)
+            # 使用 load 而非 networkidle，避免卡淘等页面因长连接导致超时
+            page.goto(url, wait_until="load", timeout=60000)
             page.wait_for_timeout(wait_seconds * 1000)
             html = page.content()
 
