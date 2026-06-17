@@ -70,8 +70,8 @@ class CardHobbyScraper:
 
                 if not items:
                     # 调试：保存页面 HTML 以便分析结构
-                    safe_keyword = "".join(c if c.isalnum() else "_" for c in keyword)[:30]
-                    self._save_debug_html(html, page, suffix=f"_{safe_keyword}")
+                    safe_name = "".join(c if c.isalnum() else "_" for c in card_name)[:30]
+                    self._save_debug_html(html, page, suffix=f"_{safe_name}")
                     # 同时输出页面标题和常见容器类名，帮助定位问题
                     self._log_page_structure(soup)
                     logger.info("卡淘第 %d 页无数据，停止翻页", page)
