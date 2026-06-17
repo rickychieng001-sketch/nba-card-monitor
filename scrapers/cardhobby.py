@@ -69,6 +69,8 @@ class CardHobbyScraper:
                         items = self._parse_list_page(soup)
 
                 if not items:
+                    # 调试：保存页面 HTML 以便分析结构
+                    self._save_debug_html(html, page)
                     logger.info("卡淘第 %d 页无数据，停止翻页", page)
                     break
 
@@ -196,6 +198,20 @@ class CardHobbyScraper:
             "date": record_date,
             "url": url,
         }
+
+    def _save_debug_html(self, html: str, page: int):
+        """
+        调试辅助：当未解析到商品时保存 HTML，便于分析页面结构
+        """
+        import os
+        os.makedirs("logs", exist_ok=True)
+        path = f"logs/cardhobby_debug_page_{page}.html"
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(html)
+            logger.debug("已保存卡淘调试 HTML: %s", path)
+        except Exception as e:
+            logger.warning("保存调试 HTML 失败: %s", str(e))
 
     def _today(self) -> str:
         """
