@@ -16,6 +16,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.helpers import fetch_html_with_fallback, parse_price, parse_date
+from utils.playwright_fetcher import fetch_with_browser
 
 logger = logging.getLogger("scrapers.cardhobby")
 
@@ -51,13 +52,22 @@ class CardHobbyScraper:
                 url = self._build_search_url(card_name, page)
                 logger.debug("卡淘搜索 URL: %s", url)
 
+                # 第一步：静态请求
                 html = fetch_html_with_fallback(url, delay=(2, 4), browser_wait=5)
                 if not html:
                     logger.info("卡淘第 %d 页无数据，停止翻页", page)
                     break
                 soup = BeautifulSoup(html, "lxml")
-
                 items = self._parse_list_page(soup)
+
+                # 第二步：静态请求未解析到数据，尝试浏览器渲染
+                if not items:
+                    logger.info("卡淘静态请求无数据，尝试浏览器渲染: %s", url)
+                    html = fetch_with_browser(url, wait_seconds=5)
+                    if html:
+                        soup = BeautifulSoup(html, "lxml")
+                        items = self._parse_list_page(soup)
+
                 if not items:
                     logger.info("卡淘第 %d 页无数据，停止翻页", page)
                     break
