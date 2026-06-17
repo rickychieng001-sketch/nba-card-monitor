@@ -48,6 +48,18 @@ def setup_logger(name: str, log_file: Optional[str] = None, level=logging.INFO) 
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
+    # 同时配置 root logger，让所有子模块日志格式统一
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        root_logger.setLevel(level)
+        root_console = logging.StreamHandler()
+        root_console.setFormatter(formatter)
+        root_logger.addHandler(root_console)
+        if log_file:
+            root_file = logging.FileHandler(log_file, encoding="utf-8")
+            root_file.setFormatter(formatter)
+            root_logger.addHandler(root_file)
+
     return logger
 
 
