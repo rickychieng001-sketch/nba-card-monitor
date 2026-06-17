@@ -93,8 +93,12 @@ class CardHobbyScraper:
     def _build_search_url(self, keyword: str, page: int = 1) -> str:
         """
         构建卡淘搜索 URL
+        必须带上 searchtype=1 才能正确触发市场搜索
         """
-        params = {"keyword": keyword}
+        params = {
+            "keyword": keyword,
+            "searchtype": "1",  # 1=市场搜索，2=求卡，4=卖家
+        }
         if page > 1:
             params["page"] = page
         return f"{self.BASE_URL}?{urlencode(params)}"
