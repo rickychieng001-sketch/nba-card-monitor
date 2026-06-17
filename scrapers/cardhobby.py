@@ -70,7 +70,10 @@ class CardHobbyScraper:
 
                 if not items:
                     # 调试：保存页面 HTML 以便分析结构
-                    self._save_debug_html(html, page)
+                    safe_keyword = "".join(c if c.isalnum() else "_" for c in keyword)[:30]
+                    self._save_debug_html(html, page, suffix=f"_{safe_keyword}")
+                    # 同时输出页面标题和常见容器类名，帮助定位问题
+                    self._log_page_structure(soup)
                     logger.info("卡淘第 %d 页无数据，停止翻页", page)
                     break
 
@@ -199,19 +202,41 @@ class CardHobbyScraper:
             "url": url,
         }
 
-    def _save_debug_html(self, html: str, page: int):
+    def _save_debug_html(self, html: str, page: int, suffix: str = ""):
         """
         调试辅助：当未解析到商品时保存 HTML，便于分析页面结构
         """
         import os
+        if not html:
+            return
         os.makedirs("logs", exist_ok=True)
-        path = f"logs/cardhobby_debug_page_{page}.html"
+        path = f"logs/cardhobby_debug_page_{page}{suffix}.html"
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(html)
-            logger.debug("已保存卡淘调试 HTML: %s", path)
+            logger.info("已保存卡淘调试 HTML: %s (长度: %d)", path, len(html))
         except Exception as e:
             logger.warning("保存调试 HTML 失败: %s", str(e))
+
+    def _log_page_structure(self, soup: BeautifulSoup):
+        """
+        输出页面结构线索，帮助调整解析选择器
+        """
+        title = soup.title.get_text(strip=True) if soup.title else "无标题"
+        logger.info("卡淘页面标题: %s", title)
+
+        # 收集页面上出现频率较高的类名
+        class_counts = {}
+        for elem in soup.find_all(class_=True):
+            for cls in elem.get("class", []):
+                class_counts[cls] = class_counts.get(cls, 0) + 1
+
+        common_classes = sorted(class_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+        logger.info("卡淘页面常见类名: %s", common_classes)
+
+        # 查找包含价格符号的元素
+        price_elems = soup.find_all(string=re.compile(r"¥\d+"))
+        logger.info("卡淘页面含 ¥ 的文本节点数量: %d", len(price_elems))
 
     def _today(self) -> str:
         """
