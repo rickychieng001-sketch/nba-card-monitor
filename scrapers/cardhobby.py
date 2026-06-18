@@ -242,6 +242,10 @@ class CardHobbyScraper:
         price_elems = soup.find_all(string=re.compile(r"¥\d+"))
         logger.info("卡淘页面含 ¥ 的文本节点数量: %d", len(price_elems))
 
+        # 输出页面文本前 500 字符，帮助判断是否是登录/拦截/空结果页
+        page_text = soup.get_text(" ", strip=True)
+        logger.info("卡淘页面文本前 500 字符: %s", page_text[:500])
+
     def _today(self) -> str:
         """
         获取今天日期
