@@ -31,6 +31,9 @@ def setup_logger(name: str, log_file: Optional[str] = None, level=logging.INFO) 
     if logger.handlers:
         return logger
 
+    # 关闭向 root 传播，避免与 root handler 重复输出
+    logger.propagate = False
+
     formatter = logging.Formatter(
         "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"

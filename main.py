@@ -140,6 +140,54 @@ def save_records(db: PriceDatabase, records: List[Dict[str, Any]], logger: loggi
     return saved
 
 
+def seed_demo_record(
+    db: PriceDatabase,
+    card_name: str,
+    platform: str,
+    currency: str,
+    logger: logging.Logger
+) -> bool:
+    """
+    演示模式：当真实抓取无数据时，插入一条示例价格记录
+    用于验证完整的抓取 -> 存储 -> 分析 -> 推送流程
+    """
+    import random
+    from datetime import datetime, timezone, timedelta
+
+    tz = timezone(timedelta(hours=8))
+    today = datetime.now(tz).strftime("%Y-%m-%d")
+
+    base_prices = {
+        "2023-24 Panini Prizm Victor Wembanyama Silver Prizm PSA 10": 8500,
+        "2018-19 Panini National Treasures Luka Doncic RPA /99": 12000,
+    }
+    base = base_prices.get(card_name, 1000)
+    if currency == "USD":
+        base = base / 7.2
+
+    # 随机小幅波动，偶尔触发异常阈值用于测试提醒
+    fluctuation = random.uniform(-0.18, 0.20)
+    price = round(base * (1 + fluctuation), 2)
+
+    record = {
+        "card_name": card_name,
+        "platform": platform,
+        "title": f"[示例数据] {card_name} - {platform}",
+        "price": price,
+        "currency": currency,
+        "date": today,
+        "url": "https://example.com/demo",
+    }
+
+    try:
+        if db.insert_price(card_name, record):
+            logger.warning("演示模式：已插入示例数据 %s | %s | %.2f %s", card_name, platform, price, currency)
+            return True
+    except Exception as e:
+        logger.error("演示模式插入失败: %s", str(e))
+    return False
+
+
 def analyze_changes(db: PriceDatabase, card_name: str, platform: str, threshold: float) -> Dict[str, Any]:
     """
     计算某卡片在某平台的最新价格相对上一次价格的涨跌
@@ -219,6 +267,11 @@ def run_monitor(config: Dict[str, Any], test_mode: bool = False, target_card: st
                     "卡片 [%s] 平台 [%s] 抓取 %d 条，保存 %d 条",
                     card_name, platform, len(records), saved_count
                 )
+
+                # 演示模式：真实数据为空时插入示例数据
+                demo_mode = config.get("demo_mode", False) or os.environ.get("CARD_MONITOR_DEMO", "") == "1"
+                if demo_mode and saved_count == 0:
+                    seed_demo_record(db, card_name, platform, currency, logger)
 
                 # 计算涨跌
                 analysis = analyze_changes(db, card_name, platform, threshold)
@@ -331,7 +384,17 @@ def main():
         default=None,
         help="只监控指定卡片（名称匹配）"
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="演示模式：无真实数据时插入示例数据"
+    )
     args = parser.parse_args()
+
+    # 命令行 --demo 覆盖配置文件
+    config_override = {}
+    if args.demo:
+        config_override["demo_mode"] = True
 
     # 设置日志
     logger = setup_logger("main", log_file="logs/monitor.log", level=logging.INFO)
@@ -340,6 +403,8 @@ def main():
 
     try:
         config = load_config(args.config)
+        if config_override:
+            config.update(config_override)
         run_monitor(config, test_mode=args.test, target_card=args.card)
     except Exception as e:
         logger.exception("监控运行失败: %s", str(e))

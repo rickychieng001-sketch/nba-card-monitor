@@ -154,7 +154,25 @@ python test_scraper.py --platform cardhobby --keyword "文班亚马 银折 PSA10
 
 ---
 
-## 8. 安全注意事项
+## 8. 演示模式（无真实数据时验证推送）
+
+如果你暂时拿不到真实数据，可以开启演示模式，系统会自动插入示例价格记录，用于验证飞书推送流程：
+
+```bash
+python main.py --test --demo
+```
+
+或在 `config.yaml` 中设置：
+
+```yaml
+demo_mode: true
+```
+
+演示模式下，所有卡片都会有一条随机波动的示例价格，方便你确认日报和异常提醒都能正常收到。
+
+---
+
+## 9. 安全注意事项
 
 1. **不要将 `FEISHU_WEBHOOK` 写入代码或 config.yaml 后提交**
 2. 代码中已做 URL 敏感参数脱敏处理
@@ -163,7 +181,7 @@ python test_scraper.py --platform cardhobby --keyword "文班亚马 银折 PSA10
 
 ---
 
-## 9. 常见问题
+## 10. 常见问题
 
 ### Q: 飞书没有收到消息？
 
@@ -191,7 +209,7 @@ A: 编辑 `.github/workflows/monitor.yml` 中的 `schedule.cron`。注意 GitHub
 
 ---
 
-## 10. 关于反爬与 eBay API（重要）
+## 11. 关于反爬与 eBay API（重要）
 
 ### 反爬说明
 
@@ -219,7 +237,7 @@ eBay 官方 API 是获取 sold 数据最稳定、最合规的方式：
 
 ---
 
-## 11. 项目结构
+## 12. 项目结构
 
 ```
 card-monitor/

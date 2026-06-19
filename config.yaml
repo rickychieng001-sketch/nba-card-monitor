@@ -14,6 +14,9 @@ thresholds:
 platform_keys:
   ebay_app_id: ""             # eBay Finding API App ID（免费申请：https://developer.ebay.com/）
 
+# 演示模式：当真实抓取不到数据时，自动插入示例数据用于验证飞书推送流程
+demo_mode: false
+
 notifications:
   feishu:
     webhook_url: ""             # 用户填写飞书 Webhook 地址
