@@ -269,7 +269,8 @@ def run_monitor(config: Dict[str, Any], test_mode: bool = False, target_card: st
                 )
 
                 # 演示模式：真实数据为空时插入示例数据
-                demo_mode = config.get("demo_mode", False) or os.environ.get("CARD_MONITOR_DEMO", "") == "1"
+                env_demo = os.environ.get("CARD_MONITOR_DEMO", "").lower()
+                demo_mode = config.get("demo_mode", False) or env_demo in ("1", "true", "yes")
                 if demo_mode and saved_count == 0:
                     seed_demo_record(db, card_name, platform, currency, logger)
 
