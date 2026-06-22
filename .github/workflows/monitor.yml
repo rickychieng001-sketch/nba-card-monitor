@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 1 * * *'      # 北京时间每天 09:00 (UTC+8)
   workflow_dispatch:           # 支持手动触发
+    inputs:
+      demo:
+        description: '启用演示模式（插入示例数据用于测试推送）'
+        required: false
+        default: 'false'
 
 jobs:
   monitor:
@@ -30,6 +35,7 @@ jobs:
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+          CARD_MONITOR_DEMO: ${{ github.event.inputs.demo }}
         run: python main.py
 
       - name: Upload database artifact
