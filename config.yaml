@@ -5,6 +5,9 @@ cards:
   - name: "2018-19 Panini National Treasures Luka Doncic RPA /99"
     aliases: ["东契奇 RPA", "Doncic RPA NT"]
     platforms: ["goldin", "pwcc", "ebay"]
+  - name: "Cooper Flagg Topps Chrome Refractor PSA 10"
+    aliases: ["Cooper Flagg Chrome", "弗拉格 Chrome"]
+    platforms: ["cardhobby", "ebay"]
 
 thresholds:
   daily_change: 0.15           # 异常阈值：单日涨跌超过 15%
