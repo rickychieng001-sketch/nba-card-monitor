@@ -1,22 +1,22 @@
 """
 卡淘 (cardhobby.com.cn) 爬虫模块
-负责抓取卡淘平台球星卡成交数据
+通过官方内部 API 抓取球星卡市场数据
 """
 
+import json
 import logging
 import re
 import time
 from typing import List, Dict, Any
 from urllib.parse import urlencode, urljoin
 
-from bs4 import BeautifulSoup
+import requests
 
 import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os as os_mod
+sys.path.insert(0, os_mod.path.dirname(os_mod.path.dirname(os_mod.path.abspath(__file__))))
 
-from utils.helpers import fetch_html_with_fallback, parse_price, parse_date
-from utils.playwright_fetcher import fetch_with_browser
+from utils.helpers import rate_limited_request, parse_price, parse_date
 
 logger = logging.getLogger("scrapers.cardhobby")
 
@@ -27,7 +27,8 @@ class CardHobbyScraper:
     统一接口：search(card_name) -> List[Dict]
     """
 
-    BASE_URL = "https://www.cardhobby.com.cn/market/search"
+    SEARCH_URL = "https://www.cardhobby.com.cn/NewCommodity/SearchCommodity"
+    ITEM_URL = "https://www.cardhobby.com.cn/market/item/{id}"
     PLATFORM = "cardhobby"
     CURRENCY = "CNY"
 
@@ -40,161 +41,106 @@ class CardHobbyScraper:
 
     def search(self, card_name: str) -> List[Dict[str, Any]]:
         """
-        搜索指定卡片在卡淘平台的成交记录
+        搜索指定卡片在卡淘平台的市场记录
+        注：卡淘该 API 返回的是出售中/拍卖中的商品，非已成交记录
         :param card_name: 卡片名称或搜索关键词
         :return: 标准格式的成交记录列表
         """
         results = []
-        logger.info("开始抓取卡淘: %s", card_name)
+        logger.info("开始抓取卡淘 API: %s", card_name)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.cardhobby.com.cn/market/search",
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+        }
 
         for page in range(1, self.max_pages + 1):
             try:
-                url = self._build_search_url(card_name, page)
-                logger.debug("卡淘搜索 URL: %s", url)
+                params = {
+                    "userId": "",
+                    "pageIndex": page,
+                    "pageSize": 20,
+                    "searchKey": card_name,
+                    "searchJson": json.dumps([{"Key": "Status", "Value": 1}]),
+                    "sort": "EffectiveTimeStamp",
+                    "sortType": "asc",
+                }
 
-                # 第一步：静态请求
-                html = fetch_html_with_fallback(url, delay=(2, 4), browser_wait=5)
-                if not html:
-                    logger.info("卡淘第 %d 页无数据，停止翻页", page)
-                    break
-                soup = BeautifulSoup(html, "lxml")
-                items = self._parse_list_page(soup)
+                logger.debug("卡淘 API 请求: %s", params)
+                response = requests.get(
+                    self.SEARCH_URL,
+                    params=params,
+                    headers=headers,
+                    timeout=30,
+                )
+                response.raise_for_status()
+                data = response.json()
 
-                # 第二步：静态请求未解析到数据，尝试浏览器渲染
+                items = self._parse_api_response(data)
                 if not items:
-                    logger.info("卡淘静态请求无数据，尝试浏览器渲染: %s", url)
-                    html = fetch_with_browser(url, wait_seconds=5)
-                    if html:
-                        soup = BeautifulSoup(html, "lxml")
-                        items = self._parse_list_page(soup)
-
-                if not items:
-                    # 调试：保存页面 HTML 以便分析结构
-                    safe_name = "".join(c if c.isalnum() else "_" for c in card_name)[:30]
-                    self._save_debug_html(html, page, suffix=f"_{safe_name}")
-                    # 同时输出页面标题和常见容器类名，帮助定位问题
-                    self._log_page_structure(soup)
-                    logger.info("卡淘第 %d 页无数据，停止翻页", page)
+                    logger.info("卡淘 API 第 %d 页无数据，停止翻页", page)
                     break
 
                 results.extend(items)
-                logger.info("卡淘第 %d 页抓取 %d 条记录", page, len(items))
+                logger.info("卡淘 API 第 %d 页抓取 %d 条记录", page, len(items))
 
-                # 卡淘反爬：请求间隔 2-4 秒
+                # 请求频率控制
                 time.sleep(2)
 
             except Exception as e:
-                logger.error("卡淘第 %d 页抓取失败: %s", page, str(e))
+                logger.error("卡淘 API 第 %d 页抓取失败: %s", page, str(e))
                 break
 
-        logger.info("卡淘抓取完成: %s, 共 %d 条", card_name, len(results))
+        logger.info("卡淘 API 抓取完成: %s, 共 %d 条", card_name, len(results))
         return results
 
-    def _build_search_url(self, keyword: str, page: int = 1) -> str:
+    def _parse_api_response(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
-        构建卡淘搜索 URL
-        必须带上 searchtype=1 才能正确触发市场搜索
-        """
-        params = {
-            "keyword": keyword,
-            "searchtype": "1",  # 1=市场搜索，2=求卡，4=卖家
-        }
-        if page > 1:
-            params["page"] = page
-        return f"{self.BASE_URL}?{urlencode(params)}"
-
-    def _parse_list_page(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
-        """
-        解析卡淘列表页，提取成交记录
-        注：卡淘页面结构可能会变化，这里使用常见电商列表选择器
+        解析卡淘 API 返回的 JSON
         """
         items = []
+        try:
+            api_data = data.get("data", {})
+            item_list = api_data.get("PagedMarketItemList", [])
+        except (KeyError, AttributeError) as e:
+            logger.warning("卡淘 API 返回结构异常: %s", str(e))
+            return items
 
-        # 卡淘列表项常见容器（根据实际页面可能需调整）
-        product_selectors = [
-            ".product-item",
-            ".goods-item",
-            ".list-item",
-            ".item",
-            "[class*='product']",
-            "[class*='item']",
-        ]
-
-        product_elements = []
-        for selector in product_selectors:
-            product_elements = soup.select(selector)
-            if product_elements:
-                break
-
-        for element in product_elements:
+        for item in item_list:
             try:
-                record = self._parse_product_item(element)
+                record = self._parse_api_item(item)
                 if record:
                     items.append(record)
             except Exception as e:
-                logger.warning("解析卡淘商品项失败: %s", str(e))
+                logger.warning("解析卡淘 API 商品项失败: %s", str(e))
                 continue
 
         return items
 
-    def _parse_product_item(self, element) -> Dict[str, Any]:
+    def _parse_api_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """
-        解析单个商品元素
+        将单条卡淘 API item 转换为标准格式
         """
-        # 提取标题
-        title = ""
-        for selector in [".title", ".product-title", "h3", "h4", "a", ".name"]:
-            title_elem = element.select_one(selector)
-            if title_elem:
-                title = title_elem.get_text(strip=True)
-                if title:
-                    break
-
+        title = item.get("Title", "").strip()
         if not title:
             return None
 
-        # 提取链接
-        url = ""
-        link_elem = element.select_one("a[href]")
-        if link_elem:
-            href = link_elem.get("href", "")
-            url = urljoin("https://www.cardhobby.com.cn", href)
+        # 价格：优先使用 LowestPrice（起拍/当前展示价），否则使用 Price
+        price_text = item.get("LowestPrice") or item.get("Price") or "0"
+        try:
+            price = float(str(price_text).replace(",", ""))
+        except (ValueError, TypeError):
+            price = 0.0
 
-        # 提取价格（人民币）
-        price = 0.0
-        price_text = ""
-        for selector in [".price", ".current-price", ".final-price", ".sold-price", ".rmb", "[class*='price']"]:
-            price_elem = element.select_one(selector)
-            if price_elem:
-                price_text = price_elem.get_text(strip=True)
-                parsed = parse_price(price_text, "CNY")
-                if parsed:
-                    price, _ = parsed
-                    break
-
-        # 如果没有找到价格，尝试从整个元素文本中提取
-        if price == 0.0:
-            text = element.get_text(" ", strip=True)
-            match = re.search(r"¥\s*([\d,]+\.?\d*)", text)
-            if match:
-                parsed = parse_price(f"¥{match.group(1)}", "CNY")
-                if parsed:
-                    price, _ = parsed
-
-        # 卡淘有最低价格过滤
-        if price < 100:
-            return None
-
-        # 提取成交日期
-        date_text = ""
-        for selector in [".date", ".time", ".end-time", ".sold-time", "[class*='date']", "[class*='time']"]:
-            date_elem = element.select_one(selector)
-            if date_elem:
-                date_text = date_elem.get_text(strip=True)
-                break
-
-        # 如果未提取到日期，使用今天
+        # 日期：拍卖/出售结束时间
+        date_text = item.get("EffectiveDate", "")
         record_date = parse_date(date_text) or self._today()
+
+        # 链接
+        item_id = item.get("ID")
+        url = self.ITEM_URL.format(id=item_id) if item_id else ""
 
         return {
             "card_name": "",
@@ -205,46 +151,6 @@ class CardHobbyScraper:
             "date": record_date,
             "url": url,
         }
-
-    def _save_debug_html(self, html: str, page: int, suffix: str = ""):
-        """
-        调试辅助：当未解析到商品时保存 HTML，便于分析页面结构
-        """
-        import os
-        if not html:
-            return
-        os.makedirs("logs", exist_ok=True)
-        path = f"logs/cardhobby_debug_page_{page}{suffix}.html"
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(html)
-            logger.info("已保存卡淘调试 HTML: %s (长度: %d)", path, len(html))
-        except Exception as e:
-            logger.warning("保存调试 HTML 失败: %s", str(e))
-
-    def _log_page_structure(self, soup: BeautifulSoup):
-        """
-        输出页面结构线索，帮助调整解析选择器
-        """
-        title = soup.title.get_text(strip=True) if soup.title else "无标题"
-        logger.info("卡淘页面标题: %s", title)
-
-        # 收集页面上出现频率较高的类名
-        class_counts = {}
-        for elem in soup.find_all(class_=True):
-            for cls in elem.get("class", []):
-                class_counts[cls] = class_counts.get(cls, 0) + 1
-
-        common_classes = sorted(class_counts.items(), key=lambda x: x[1], reverse=True)[:15]
-        logger.info("卡淘页面常见类名: %s", common_classes)
-
-        # 查找包含价格符号的元素
-        price_elems = soup.find_all(string=re.compile(r"¥\d+"))
-        logger.info("卡淘页面含 ¥ 的文本节点数量: %d", len(price_elems))
-
-        # 输出页面文本前 500 字符，帮助判断是否是登录/拦截/空结果页
-        page_text = soup.get_text(" ", strip=True)
-        logger.info("卡淘页面文本前 500 字符: %s", page_text[:500])
 
     def _today(self) -> str:
         """
