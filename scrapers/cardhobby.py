@@ -58,13 +58,15 @@ class CardHobbyScraper:
         self.max_pages = max_pages
         self.min_match_score = min_match_score
 
-    def search(self, card_name: str) -> List[Dict[str, Any]]:
+    def search(self, card_name: str, original_name: str = None) -> List[Dict[str, Any]]:
         """
         搜索指定卡片在卡淘平台的市场记录
-        :param card_name: 卡片名称或搜索关键词
+        :param card_name: 搜索关键词（可能为别名）
+        :param original_name: 卡片标准名称，用于标题匹配过滤；为空时回退到 card_name
         :return: 标准格式的市场记录列表（按匹配度排序）
         """
         raw_results = []
+        match_name = original_name or card_name
         logger.info("开始抓取卡淘 API: %s", card_name)
 
         headers = {
@@ -112,7 +114,7 @@ class CardHobbyScraper:
                 break
 
         # 标题匹配过滤与排序
-        results = self._filter_by_relevance(card_name, raw_results)
+        results = self._filter_by_relevance(match_name, raw_results)
         logger.info(
             "卡淘 API 抓取完成: %s, 原始 %d 条, 匹配 %d 条",
             card_name, len(raw_results), len(results)

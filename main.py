@@ -92,7 +92,8 @@ def scrape_card(card: Dict[str, Any], scraper_instance, min_price: float, logger
 
     for keyword in keywords:
         try:
-            results = scraper_instance.search(keyword)
+            # 把原始卡片标准名称传给爬虫，用于标题匹配过滤
+            results = scraper_instance.search(keyword, original_name=card["name"])
             for record in results:
                 record["card_name"] = card["name"]
                 # 价格过滤
