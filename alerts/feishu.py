@@ -125,6 +125,13 @@ class FeishuAlert:
             f"异常：{summary.get('abnormal_count', 0)} 张"
         )
 
+        # 数据来源说明
+        source_note = (
+            "**📌 数据说明**\n"
+            "- 卡淘：展示的是出售中/拍卖中的商品价格，非已成交价\n"
+            "- eBay：若配置 EBAY_APP_ID，则为已成交数据；否则为页面抓取数据"
+        )
+
         # 价格明细表格
         table_header = "| 卡片 | 平台 | 最新价 | 涨跌 |"
         table_sep = "|---|---|---|---|"
@@ -196,6 +203,10 @@ class FeishuAlert:
                     {
                         "tag": "div",
                         "text": {"tag": "lark_md", "content": overview_text}
+                    },
+                    {
+                        "tag": "div",
+                        "text": {"tag": "lark_md", "content": source_note}
                     },
                     {
                         "tag": "div",
