@@ -37,7 +37,7 @@ class EbayScraper:
     PLATFORM = "ebay"
     CURRENCY = "USD"
 
-    def __init__(self, max_pages: int = 3, app_id: str = None):
+    def __init__(self, max_pages: int = 3, app_id: str = None, **kwargs):
         """
         初始化爬虫
         :param max_pages: 最大抓取页数，默认 3 页
@@ -46,11 +46,12 @@ class EbayScraper:
         self.max_pages = max_pages
         self.app_id = app_id or os.environ.get("EBAY_APP_ID", "")
 
-    def search(self, card_name: str) -> List[Dict[str, Any]]:
+    def search(self, card_name: str, original_name: str = None) -> List[Dict[str, Any]]:
         """
         搜索指定卡片在 eBay 的已成交记录
         优先使用 Finding API，未配置 App ID 时降级到 HTML 抓取
-        :param card_name: 卡片名称或搜索关键词
+        :param card_name: 搜索关键词
+        :param original_name: 卡片标准名称（预留，当前未使用）
         :return: 标准格式的成交记录列表
         """
         if self.app_id:

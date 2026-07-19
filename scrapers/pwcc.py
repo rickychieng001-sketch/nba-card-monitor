@@ -30,17 +30,18 @@ class PwccScraper:
     PLATFORM = "pwcc"
     CURRENCY = "USD"
 
-    def __init__(self, max_pages: int = 3):
+    def __init__(self, max_pages: int = 3, **kwargs):
         """
         初始化爬虫
         :param max_pages: 最大抓取页数，默认 3 页
         """
         self.max_pages = max_pages
 
-    def search(self, card_name: str) -> List[Dict[str, Any]]:
+    def search(self, card_name: str, original_name: str = None) -> List[Dict[str, Any]]:
         """
         搜索指定卡片在 PWCC 的成交记录
-        :param card_name: 卡片名称或搜索关键词
+        :param card_name: 搜索关键词
+        :param original_name: 卡片标准名称（预留，当前未使用）
         :return: 标准格式的成交记录列表
         """
         results = []
