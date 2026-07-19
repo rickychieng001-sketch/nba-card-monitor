@@ -37,7 +37,7 @@ class CardHobbyScraper:
 
     # 关键术语的中英文映射，用于标题匹配
     TERM_ALIASES = {
-        "refractor": ["refractor", "折射", "银折", "折"],
+        "refractor": ["refractor", "折射", "银折"],
         "psa": ["psa", "评级"],
         "chrome": ["chrome", "tc"],
         "wembanyama": ["wembanyama", "文班亚马"],
@@ -48,6 +48,9 @@ class CardHobbyScraper:
         "nt": ["national treasures", "nt"],
         "silver": ["silver", "银"],
     }
+
+    # 负面关键词：包含这些词的通常是瑕疵卡、base 卡、求购等非目标商品
+    NEGATIVE_TERMS = ["base", "瑕疵", "破损", "损伤", "求购", "回收", "换卡"]
 
     def __init__(self, max_pages: int = 3, min_match_score: float = 0.6):
         """
@@ -124,7 +127,7 @@ class CardHobbyScraper:
     def _filter_by_relevance(self, card_name: str, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         根据卡片名称与标题的匹配度过滤结果
-        只返回匹配分数 >= min_match_score 的记录，并按匹配度降序排列
+        只返回匹配分数 >= min_match_score 且不含负面关键词的记录，并按匹配度降序排列
         """
         key_terms = self._extract_key_terms(card_name)
         if not key_terms:
@@ -132,13 +135,26 @@ class CardHobbyScraper:
 
         scored = []
         for record in records:
-            score = self._title_match_score(record.get("title", ""), key_terms)
+            title = record.get("title", "")
+            if self._has_negative_term(title):
+                continue
+            score = self._title_match_score(title, key_terms)
             if score >= self.min_match_score:
                 record["_match_score"] = round(score, 3)
                 scored.append(record)
 
         scored.sort(key=lambda x: x["_match_score"], reverse=True)
         return scored
+
+    def _has_negative_term(self, title: str) -> bool:
+        """
+        检查标题是否包含负面关键词（瑕疵、base、求购等）
+        """
+        title_lower = title.lower()
+        for term in self.NEGATIVE_TERMS:
+            if term.lower() in title_lower:
+                return True
+        return False
 
     def _extract_key_terms(self, card_name: str) -> List[Tuple[str, List[str]]]:
         """
@@ -148,26 +164,29 @@ class CardHobbyScraper:
         # 拆分为英文单词、数字组合
         tokens = re.findall(r"[A-Za-z0-9]+(?:/[A-Za-z0-9]+)?", card_name)
 
-        # 过滤掉太泛的词汇，保留有意义的词
+        # 过滤掉太泛的词汇，保留有意义的词；不单独使用纯数字作为关键项
         stop_words = {"the", "and", "of", "in", "on", "at", "to", "for", "with", "rc"}
         terms = []
-        for token in tokens:
+        prev_token = None
+        for i, token in enumerate(tokens):
             lower = token.lower()
             if lower in stop_words or len(lower) <= 1:
                 continue
+            if re.match(r"^\d+$", lower):
+                # 若前一个是 PSA，合并为 psa10
+                if prev_token and prev_token.lower() == "psa":
+                    continue
+                # 否则忽略纯数字
+                continue
 
             # 合并相邻的 PSA 和 10
-            if lower == "psa" and "10" in card_name.lower().split("psa")[-1][:5]:
-                token = "psa10"
+            if lower == "psa" and i + 1 < len(tokens) and tokens[i + 1] == "10":
                 lower = "psa10"
+                token = "psa10"
 
             aliases = self.TERM_ALIASES.get(lower, [lower])
             terms.append((lower, aliases))
-
-        # 添加年份作为可选匹配项（不强求）
-        year_match = re.search(r"\d{4}-\d{2}", card_name)
-        if year_match:
-            terms.append(("year", [year_match.group().replace("-", "")]))
+            prev_token = token
 
         return terms
 
