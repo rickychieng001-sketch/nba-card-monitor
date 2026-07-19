@@ -49,10 +49,10 @@ class CardHobbyScraper:
         "silver": ["silver", "银"],
     }
 
-    # 负面关键词：包含这些词的通常是瑕疵卡、base 卡、求购等非目标商品
-    NEGATIVE_TERMS = ["base", "瑕疵", "破损", "损伤", "求购", "回收", "换卡"]
+    # 负面关键词：包含这些词的通常是瑕疵卡、base 卡、套装、求购等非目标商品
+    NEGATIVE_TERMS = ["base", "瑕疵", "破损", "损伤", "求购", "回收", "换卡", "一套", "set of", "lot of"]
 
-    def __init__(self, max_pages: int = 3, min_match_score: float = 0.6):
+    def __init__(self, max_pages: int = 3, min_match_score: float = 0.75):
         """
         初始化爬虫
         :param max_pages: 最大抓取页数，默认 3 页
