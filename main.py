@@ -15,6 +15,7 @@ from alerts.feishu import FeishuAlert
 from scrapers.cardhobby import CardHobbyScraper
 from scrapers.ebay import EbayScraper
 from scrapers.goldin import GoldinScraper
+from scrapers.point130 import Point130Scraper
 from scrapers.pwcc import PwccScraper
 from storage.database import PriceDatabase
 from utils.helpers import (
@@ -30,6 +31,7 @@ PLATFORM_MAP = {
     "ebay": EbayScraper,
     "goldin": GoldinScraper,
     "pwcc": PwccScraper,
+    "130point": Point130Scraper,
 }
 
 

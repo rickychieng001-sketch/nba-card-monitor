@@ -7,7 +7,7 @@ cards:
     platforms: ["goldin", "pwcc", "ebay"]
   - name: "Cooper Flagg Topps Chrome Refractor PSA 10"
     aliases: ["Cooper Flagg Chrome", "弗拉格 Chrome"]
-    platforms: ["cardhobby", "ebay"]
+    platforms: ["130point", "cardhobby", "ebay"]
 
 thresholds:
   daily_change: 0.15           # 异常阈值：单日涨跌超过 15%
